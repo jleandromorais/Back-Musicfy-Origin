@@ -17,8 +17,7 @@ public class Usuario {
     @Column(name = "firebase_uid", unique = true)
     private String firebaseUid;
 
-    // Relacionamento 1:1 com Carrinho
-    @OneToOne(mappedBy = "user")  // Agora corresponde ao nome em Cart
+    @OneToOne(mappedBy = "user")
     private Cart cart;
 
     public void setCart(Cart cart) {

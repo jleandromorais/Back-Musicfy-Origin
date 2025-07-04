@@ -1,54 +1,65 @@
 package Musicfy.MusicfyOrigin.Product.Service;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
-import com.google.firebase.auth.FirebaseToken;
 import Musicfy.MusicfyOrigin.Product.dto.UserDTO;
 import Musicfy.MusicfyOrigin.Product.model.Cart;
 import Musicfy.MusicfyOrigin.Product.model.Usuario;
 import Musicfy.MusicfyOrigin.Product.repository.CartRepository;
 import Musicfy.MusicfyOrigin.Product.repository.UsuarioRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UsuarioService {
 
+    private static final Logger logger = LoggerFactory.getLogger(UsuarioService.class);
+
     private final UsuarioRepository usuarioRepository;
     private final CartRepository cartRepository;
-    private final FirebaseAuth firebaseAuth;
 
     public UsuarioService(UsuarioRepository usuarioRepository,
-                          CartRepository cartRepository,
-                          FirebaseAuth firebaseAuth) {
+                          CartRepository cartRepository) {
         this.usuarioRepository = usuarioRepository;
         this.cartRepository = cartRepository;
-        this.firebaseAuth = firebaseAuth;
     }
 
     @Transactional
-    public void criarUsuarioComCarrinho(String token, UserDTO userDTO) throws FirebaseAuthException {
-        // Verifica o token via Firebase
-        FirebaseToken decodedToken = firebaseAuth.verifyIdToken(token);
-        String uid = decodedToken.getUid();
+    public void criarUsuarioComCarrinho(UserDTO userDTO) {
+        try {
+            String uid = userDTO.getFirebaseUid();
+            String email = userDTO.getEmail();
 
-        // Validação de segurança: o UID do token precisa bater com o do DTO
-        if (!userDTO.getFirebaseUid().equals(uid)) {
-            throw new SecurityException("UID do token não corresponde ao UID do usuário");
+            System.out.println("Recebendo dados - UID: " + uid + ", Email: " + email);
+
+            Optional<Usuario> usuarioExistente = Optional.ofNullable(usuarioRepository.findByFirebaseUid(uid));
+            if (usuarioExistente.isPresent()) {
+                System.out.println("Usuário já existe no banco: " + uid);
+                throw new IllegalStateException("Usuário já cadastrado");
+            }
+
+            Usuario usuario = new Usuario();
+            usuario.setFirebaseUid(uid);
+            usuario.setName(userDTO.getFullName());
+            usuario.setEmail(email);
+
+            System.out.println("Salvando usuário no banco...");
+            usuario = usuarioRepository.save(usuario);
+
+            Cart cart = new Cart();
+            cart.setUser(usuario);
+
+            System.out.println("Salvando carrinho no banco...");
+            cartRepository.save(cart);
+
+            System.out.println("Usuário e carrinho criados com sucesso!");
+
+        } catch (Exception e) {
+            System.err.println("Erro ao criar usuário: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        // Cria e popula o usuário
-        Usuario usuario = new Usuario();
-        usuario.setId(userDTO.getId());
-        usuario.setName(userDTO.getFullName());
-        usuario.setEmail(userDTO.getEmail());
-        // TODO: setar outros campos do Usuario conforme necessário
-
-        usuarioRepository.save(usuario);
-
-        // Cria e salva o carrinho vinculado ao usuário
-        Cart cart = new Cart();
-        cart.setUser(usuario);
-        cartRepository.save(cart);
     }
 }

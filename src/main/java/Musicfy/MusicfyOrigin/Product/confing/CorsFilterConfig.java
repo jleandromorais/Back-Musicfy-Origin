@@ -1,4 +1,5 @@
-package Musicfy.MusicfyOrigin.Product.confing;// src/main/java/com/seuapp/config/CorsFilterConfig.java
+package Musicfy.MusicfyOrigin.Product.confing;
+
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,17 +16,17 @@ public class CorsFilterConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
 
+        // Configurações específicas
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:5173");
+        config.addAllowedOriginPattern("http://localhost:*"); // Permite qualquer porta localhost
+        config.addAllowedOriginPattern("https://*.seusite.com"); // Padrão para produção
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
 
         source.registerCorsConfiguration("/**", config);
 
-        FilterRegistrationBean<CorsFilter> bean =
-                new FilterRegistrationBean<>(new CorsFilter(source));
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-
         return bean;
     }
 }

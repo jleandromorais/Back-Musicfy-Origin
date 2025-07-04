@@ -1,6 +1,5 @@
 package Musicfy.MusicfyOrigin.Product.Controller;
 
-import com.google.firebase.auth.FirebaseAuthException;
 import Musicfy.MusicfyOrigin.Product.Service.UsuarioService;
 import Musicfy.MusicfyOrigin.Product.dto.UserDTO;
 import org.springframework.http.ResponseEntity;
@@ -8,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/usuario")
-@CrossOrigin(origins = "*")
 public class UserController {
 
     private final UsuarioService userService;
@@ -18,22 +16,16 @@ public class UserController {
     }
 
     @PostMapping("/criar")
-    public ResponseEntity<String> createUser(
-            @RequestHeader("Authorization") String token,
-            @RequestBody UserDTO userDTO
-    ) {
+    public ResponseEntity<?> createUser(@RequestBody UserDTO userDTO) {
+        System.out.println("Iniciando criação de usuário para: " + userDTO.getEmail());
+
         try {
-            userService.criarUsuarioComCarrinho( // Verifique se esse método existe em UsuarioService
-                    token.replace("Bearer ", ""),
-                    userDTO
-            );
+            userService.criarUsuarioComCarrinho(userDTO);
+            System.out.println("Usuário criado com sucesso!");
             return ResponseEntity.ok("Usuário e carrinho criados com sucesso!");
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido: " + e.getMessage());
-        } catch (SecurityException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Erro ao processar requisição");
+            System.err.println("Falha na criação: " + e.getMessage());
+            return ResponseEntity.internalServerError().body("Erro: " + e.getMessage());
         }
     }
 }
