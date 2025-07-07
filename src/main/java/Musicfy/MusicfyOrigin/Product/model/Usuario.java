@@ -7,6 +7,7 @@ import lombok.Data;
 @Table(name = "usuarios")
 @Data
 public class Usuario {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -17,7 +18,8 @@ public class Usuario {
     @Column(name = "firebase_uid", unique = true)
     private String firebaseUid;
 
-    @OneToOne(mappedBy = "user")
+    // Relacionamento com Cart (1 para 1)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Cart cart;
 
     public void setCart(Cart cart) {

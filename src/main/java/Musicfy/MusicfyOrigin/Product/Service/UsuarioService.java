@@ -27,39 +27,38 @@ public class UsuarioService {
     }
 
     @Transactional
-    public void criarUsuarioComCarrinho(UserDTO userDTO) {
+    public Usuario criarUsuarioComCarrinho(UserDTO userDTO) {
         try {
             String uid = userDTO.getFirebaseUid();
-            String email = userDTO.getEmail();
-
-            System.out.println("Recebendo dados - UID: " + uid + ", Email: " + email);
 
             Optional<Usuario> usuarioExistente = Optional.ofNullable(usuarioRepository.findByFirebaseUid(uid));
             if (usuarioExistente.isPresent()) {
-                System.out.println("Usuário já existe no banco: " + uid);
                 throw new IllegalStateException("Usuário já cadastrado");
             }
 
             Usuario usuario = new Usuario();
             usuario.setFirebaseUid(uid);
             usuario.setName(userDTO.getFullName());
-            usuario.setEmail(email);
+            usuario.setEmail(userDTO.getEmail());
 
-            System.out.println("Salvando usuário no banco...");
-            usuario = usuarioRepository.save(usuario);
+            Usuario usuarioSalvo = usuarioRepository.save(usuario);
+            logger.info("Usuário salvo com ID: {}", usuarioSalvo.getId());
 
             Cart cart = new Cart();
-            cart.setUser(usuario);
-
-            System.out.println("Salvando carrinho no banco...");
+            cart.setUser(usuarioSalvo);
             cartRepository.save(cart);
 
-            System.out.println("Usuário e carrinho criados com sucesso!");
+            return usuarioSalvo;
 
         } catch (Exception e) {
-            System.err.println("Erro ao criar usuário: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Erro ao criar usuário: {}", e.getMessage());
             throw e;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Usuario> buscarUsuarioPorFirebaseUid(String firebaseUid) {
+        logger.info("Buscando usuário com Firebase UID: {}", firebaseUid);
+        return Optional.ofNullable(usuarioRepository.findByFirebaseUid(firebaseUid));
     }
 }
