@@ -20,40 +20,34 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final CartRepository cartRepository;
 
-    public UsuarioService(UsuarioRepository usuarioRepository,
-                          CartRepository cartRepository) {
+    public UsuarioService(UsuarioRepository usuarioRepository, CartRepository cartRepository) {
         this.usuarioRepository = usuarioRepository;
         this.cartRepository = cartRepository;
     }
 
     @Transactional
     public Usuario criarUsuarioComCarrinho(UserDTO userDTO) {
-        try {
-            String uid = userDTO.getFirebaseUid();
+        String uid = userDTO.getFirebaseUid();
 
-            Optional<Usuario> usuarioExistente = Optional.ofNullable(usuarioRepository.findByFirebaseUid(uid));
-            if (usuarioExistente.isPresent()) {
-                throw new IllegalStateException("Usuário já cadastrado");
-            }
-
-            Usuario usuario = new Usuario();
-            usuario.setFirebaseUid(uid);
-            usuario.setName(userDTO.getFullName());
-            usuario.setEmail(userDTO.getEmail());
-
-            Usuario usuarioSalvo = usuarioRepository.save(usuario);
-            logger.info("Usuário salvo com ID: {}", usuarioSalvo.getId());
-
-            Cart cart = new Cart();
-            cart.setUser(usuarioSalvo);
-            cartRepository.save(cart);
-
-            return usuarioSalvo;
-
-        } catch (Exception e) {
-            logger.error("Erro ao criar usuário: {}", e.getMessage());
-            throw e;
+        Optional<Usuario> usuarioExistente = Optional.ofNullable(usuarioRepository.findByFirebaseUid(uid));
+        if (usuarioExistente.isPresent()) {
+            logger.warn("Tentativa de criar usuário já existente com Firebase UID: {}", uid);
+            throw new IllegalStateException("Usuário já cadastrado");
         }
+
+        Usuario usuario = new Usuario();
+        usuario.setFirebaseUid(uid);
+        usuario.setName(userDTO.getFullName());
+        usuario.setEmail(userDTO.getEmail());
+
+        Usuario usuarioSalvo = usuarioRepository.save(usuario);
+        logger.info("Usuário salvo com ID: {}", usuarioSalvo.getId());
+
+        Cart cart = new Cart();
+        cart.setUser(usuarioSalvo);
+        cartRepository.save(cart);
+
+        return usuarioSalvo;
     }
 
     @Transactional(readOnly = true)

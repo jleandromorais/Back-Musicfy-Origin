@@ -18,7 +18,6 @@ public class Usuario {
     @Column(name = "firebase_uid", unique = true)
     private String firebaseUid;
 
-    // Relacionamento com Cart (1 para 1)
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Cart cart;
 
