@@ -1,20 +1,37 @@
 package Musicfy.MusicfyOrigin.Product.Controller;
 
+import Musicfy.MusicfyOrigin.Product.Service.CartService;
+import Musicfy.MusicfyOrigin.Product.dto.CartItemResponseDTO;
 import Musicfy.MusicfyOrigin.Product.dto.ItemCarrinhoRequestDTO;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/carrinho")
 public class CartController {
 
+    @Autowired
+    private CartService cartService;
     @PostMapping("/criar")
-    public ResponseEntity<String> criarCarrinho(@RequestBody ItemCarrinhoRequestDTO request) {
+    public ResponseEntity<Map<String, Object>> criarCarrinho(@RequestBody ItemCarrinhoRequestDTO request) {
         System.out.println("✅ Criando carrinho...");
-        // lógica para criar o carrinho
-        System.out.println("✅ Carrinho criado com sucesso - ok");
-        return ResponseEntity.ok("ok");
+
+        // Aqui você deve criar o carrinho com o item (chame o serviço)
+        CartItemResponseDTO cartItemDTO = cartService.criarCarrinhoComItem(request.getProductId(), request.getQuantity());
+
+        System.out.println("✅ Carrinho criado com sucesso - ID: " + cartItemDTO.getCartId());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("cartId", cartItemDTO.getCartId());
+        response.put("item", cartItemDTO);
+
+        return ResponseEntity.ok(response);
     }
+
 
     @PostMapping("/{cartId}/adicionar")
     public ResponseEntity<String> adicionarItem(@PathVariable Long cartId, @RequestBody ItemCarrinhoRequestDTO request) {
