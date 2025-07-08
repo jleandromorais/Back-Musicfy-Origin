@@ -21,7 +21,7 @@ public class CartItem {
     private Cart cart;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "product_id", nullable = false, updatable = false)
+    @JoinColumn(name = "product_id", nullable = false) // ✅ Removido updatable = false
     private Product product;
 
     @Column(nullable = false)

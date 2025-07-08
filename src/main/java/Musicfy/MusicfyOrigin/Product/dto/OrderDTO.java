@@ -14,7 +14,7 @@ import java.util.List;
 public class OrderDTO {
     private Long id;
     private String userId; // Firebase UID do usuário
-    private LocalDateTime orderDate;
+    private String orderDate;
     private OrderStatus status;
     private Double totalPrice;
     private EnderecoDTO deliveryAddress; // Endereço associado ao pedido

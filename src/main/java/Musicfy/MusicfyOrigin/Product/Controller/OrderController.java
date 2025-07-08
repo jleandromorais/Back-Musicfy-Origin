@@ -39,19 +39,20 @@ public class OrderController {
     }
 
     @PatchMapping("/{orderId}/status")
-    public ResponseEntity<OrderDTO> updateOrderStatus(@PathVariable Long orderId, @RequestBody Map<String, String> statusUpdate) {
+    public ResponseEntity<?> updateOrderStatus(@PathVariable Long orderId, @RequestBody Map<String, String> statusUpdate) {
+        String newStatusString = statusUpdate.get("status");
+        if (newStatusString == null) {
+            return ResponseEntity.badRequest().body("Campo 'status' obrigatório");
+        }
         try {
-            String newStatusString = statusUpdate.get("status");
-            if (newStatusString == null) {
-                return ResponseEntity.badRequest().body(null);
-            }
             OrderStatus newStatus = OrderStatus.valueOf(newStatusString.toUpperCase());
             OrderDTO updatedOrder = orderService.updateOrderStatus(orderId, newStatus);
             return ResponseEntity.ok(updatedOrder);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(null); // Status inválido fornecido
+            return ResponseEntity.badRequest().body("Status inválido: " + newStatusString);
         } catch (EntityNotFoundException e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Pedido não encontrado: " + orderId);
         }
     }
+
 }

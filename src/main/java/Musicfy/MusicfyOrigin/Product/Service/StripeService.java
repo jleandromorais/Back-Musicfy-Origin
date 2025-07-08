@@ -1,6 +1,8 @@
 package Musicfy.MusicfyOrigin.Product.Service;
 
 import Musicfy.MusicfyOrigin.Product.model.Endereco;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
@@ -8,11 +10,15 @@ import com.stripe.param.checkout.SessionCreateParams;
 import Musicfy.MusicfyOrigin.Product.dto.ItemCarrinhoDTO;
 import Musicfy.MusicfyOrigin.Product.model.*; // Importa todos os modelos
 import Musicfy.MusicfyOrigin.Product.repository.*; // Importa todos os repositórios
+import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,134 +26,152 @@ import java.util.stream.Collectors;
 @Service
 public class StripeService {
 
+    public static final Logger logger = LoggerFactory.getLogger(StripeService.class);
+
     @Value("${stripe.secret.key}")
     private String stripeApiKey;
 
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
-    private final UsuarioRepository usuarioRepository; // Assumindo que você tem isso para encontrar usuários
-    private final EnderecoRepository enderecoRepository; // Assumindo que você tem isso para encontrar endereços
+    private final UsuarioRepository usuarioRepository;
+    private final EnderecoRepository enderecoRepository;
+    private final ObjectMapper objectMapper; // Para serializar/deserializar JSON
 
     public StripeService(CartRepository cartRepository, ProductRepository productRepository,
-                         OrderRepository orderRepository, OrderItemRepository orderItemRepository,
-                         UsuarioRepository usuarioRepository, EnderecoRepository enderecoRepository) {
+                         OrderRepository orderRepository, UsuarioRepository usuarioRepository,
+                         EnderecoRepository enderecoRepository) {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
-        this.orderItemRepository = orderItemRepository;
         this.usuarioRepository = usuarioRepository;
         this.enderecoRepository = enderecoRepository;
+        this.objectMapper = new ObjectMapper();
     }
 
     @PostConstruct
     public void init() {
         if (stripeApiKey == null || stripeApiKey.trim().isEmpty()) {
-            throw new IllegalStateException("""
+            logger.error("""
                 #########################################################
-                ERRO: Chave Stripe não configurada!
+                ERRO CRÍTICO: Chave Stripe não configurada!
                 Por favor, defina no application.properties:
                 stripe.secret.key=sua_chave_stripe_aqui
                 #########################################################""");
+            throw new IllegalStateException("Chave Stripe não configurada.");
         }
-
-        System.out.println("Configurando Stripe com chave: ***" +
-                stripeApiKey.substring(stripeApiKey.length() - 4));
         Stripe.apiKey = stripeApiKey;
+        logger.info("Stripe SDK configurado com sucesso.");
     }
 
     @Transactional
-    public Session createCheckoutSession(Long cartId, Long userId, Long enderecoId, List<ItemCarrinhoDTO> items) throws StripeException {
-        try {
-            String successUrl = "http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}";
-            String cancelUrl = "http://localhost:5173/cancel";
+    public Session createCheckoutSession(Long cartId, Long userId, Long enderecoId, List<ItemCarrinhoDTO> items) throws StripeException, IOException {
+        String successUrl = "http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}";
+        String cancelUrl = "http://localhost:5173/cancel";
 
-            List<SessionCreateParams.LineItem> lineItems = items.stream()
-                    .map(item -> {
-                        if (item.getPrecoUnitario() <= 0 || item.getQuantidade() <= 0) {
-                            throw new IllegalArgumentException("Preço ou quantidade inválidos para o item: " + item.getNomeProduto());
-                        }
+        // NOVO: Monta uma nova lista de DTOs com productId incluído
+        List<ItemCarrinhoDTO> enrichedItems = items.stream()
+                .map(item -> {
+                    Product produto = productRepository.findByName(item.getNomeProduto())
+                            .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado ao criar checkout: " + item.getNomeProduto()));
 
-                        return SessionCreateParams.LineItem.builder()
-                                .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
-                                        .setCurrency("brl")
-                                        .setUnitAmount((long) (item.getPrecoUnitario() * 100))
-                                        .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                                .setName(item.getNomeProduto())
-                                                .build())
-                                        .build())
-                                .setQuantity((long) item.getQuantidade())
-                                .build();
-                    })
-                    .collect(Collectors.toList());
+                    ItemCarrinhoDTO dto = new ItemCarrinhoDTO();
+                    dto.setProductId(produto.getId()); // ESSENCIAL!
+                    dto.setNomeProduto(produto.getName());
+                    dto.setPrecoUnitario(produto.getPrice());
+                    dto.setQuantidade(item.getQuantidade());
+                    return dto;
+                }).collect(Collectors.toList());
 
-            SessionCreateParams params = SessionCreateParams.builder()
-                    .addAllLineItem(lineItems)
-                    .setMode(SessionCreateParams.Mode.PAYMENT)
-                    .setSuccessUrl(successUrl)
-                    .setCancelUrl(cancelUrl)
-                    // Passa metadados personalizados para a sessão para recuperá-los mais tarde
-                    .putMetadata("cartId", String.valueOf(cartId))
-                    .putMetadata("userId", String.valueOf(userId))
-                    .putMetadata("enderecoId", String.valueOf(enderecoId))
-                    .build();
+        // Agora gera os lineItems para Stripe com base nessa lista
+        List<SessionCreateParams.LineItem> lineItems = enrichedItems.stream()
+                .map(item -> {
+                    return SessionCreateParams.LineItem.builder()
+                            .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
+                                    .setCurrency("brl")
+                                    .setUnitAmount((long) (item.getPrecoUnitario() * 100))
+                                    .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                                            .setName(item.getNomeProduto())
+                                            .build())
+                                    .build())
+                            .setQuantity((long) item.getQuantidade())
+                            .build();
+                }).collect(Collectors.toList());
 
-            return Session.create(params);
+        // Serializa a lista para armazenar nos metadados
+        String itemsJson = objectMapper.writeValueAsString(enrichedItems);
 
-        } catch (StripeException e) {
-            System.err.println("ERRO STRIPE - Status: " + e.getStatusCode());
-            System.err.println("Tipo: " + e.getStripeError().getType());
-            System.err.println("Código: " + e.getStripeError().getCode());
-            System.err.println("Mensagem: " + e.getStripeError().getMessage());
-            throw new RuntimeException("Falha ao criar sessão de pagamento", e);
-        }
+        SessionCreateParams params = SessionCreateParams.builder()
+                .addAllLineItem(lineItems)
+                .setMode(SessionCreateParams.Mode.PAYMENT)
+                .setSuccessUrl(successUrl)
+                .setCancelUrl(cancelUrl)
+                .putMetadata("cartId", String.valueOf(cartId))
+                .putMetadata("userId", String.valueOf(userId))
+                .putMetadata("enderecoId", String.valueOf(enderecoId))
+                .putMetadata("itemsJson", itemsJson)
+                .build();
+
+        return Session.create(params);
     }
 
     @Transactional
-    public Order fulfillOrder(String sessionId) throws StripeException {
-        Session session = Session.retrieve(sessionId);
+    public Order fulfillOrder(Session session) throws IOException {
+        logger.info("Iniciando processamento de pedido para a sessão Stripe ID: {}", session.getId());
 
-        // Recupera os metadados passados durante a criação da sessão
+        // Recupera os metadados
         Long cartId = Long.valueOf(session.getMetadata().get("cartId"));
         Long userId = Long.valueOf(session.getMetadata().get("userId"));
         Long enderecoId = Long.valueOf(session.getMetadata().get("enderecoId"));
+        String itemsJson = session.getMetadata().get("itemsJson");
 
-        Cart cart = cartRepository.findById(cartId)
-                .orElseThrow(() -> new RuntimeException("Carrinho não encontrado para o ID: " + cartId));
+        // Valida se as informações essenciais estão presentes
+        if (itemsJson == null || itemsJson.isEmpty()) {
+            logger.error("Falha ao processar pedido: 'itemsJson' não encontrado nos metadados da sessão {}", session.getId());
+            throw new IllegalStateException("Metadados de itens ausentes na sessão de checkout.");
+        }
+
         Usuario user = usuarioRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado para o ID: " + userId));
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado para o ID: " + userId));
         Endereco endereco = enderecoRepository.findById(enderecoId)
-                .orElseThrow(() -> new RuntimeException("Endereço não encontrado para o ID: " + enderecoId));
+                .orElseThrow(() -> new EntityNotFoundException("Endereço não encontrado para o ID: " + enderecoId));
+        Cart cart = cartRepository.findById(cartId)
+                .orElseThrow(() -> new EntityNotFoundException("Carrinho não encontrado para o ID: " + cartId));
+
+        // Deserializa os itens do JSON
+        List<ItemCarrinhoDTO> itemsFromCheckout = objectMapper.readValue(itemsJson, new TypeReference<List<ItemCarrinhoDTO>>() {});
 
         Order order = new Order();
         order.setUser(user);
         order.setOrderDate(LocalDateTime.now());
-        order.setStatus(OrderStatus.PENDING); // Status inicial
+        order.setStatus(OrderStatus.PROCESSING);
         order.setDeliveryAddress(endereco);
 
-        double totalOrderPrice = 0.0;
-
-        for (CartItem cartItem : cart.getItems()) {
-            Product product = productRepository.findById(cartItem.getProduct().getId())
-                    .orElseThrow(() -> new RuntimeException("Produto não encontrado para o item do carrinho: " + cartItem.getProduct().getId()));
+        for (ItemCarrinhoDTO itemDTO : itemsFromCheckout) {
+            // Busca o produto pelo ID, NÃO pelo nome
+            Product product = productRepository.findById(itemDTO.getProductId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: ID " + itemDTO.getProductId()));
 
             OrderItem orderItem = new OrderItem(
                     order,
                     product,
-                    cartItem.getQuantity(),
-                    product.getPrice() // Usa o preço atual do produto como preço unitário na compra
+                    itemDTO.getQuantidade(),
+                    itemDTO.getPrecoUnitario()
             );
             order.addOrderItem(orderItem);
-            totalOrderPrice += (product.getPrice() * cartItem.getQuantity());
         }
+
+        // Usa o total da sessão Stripe para o preço total do pedido
+        double totalOrderPrice = (double) session.getAmountTotal() / 100.0;
         order.setTotalPrice(totalOrderPrice);
 
         Order savedOrder = orderRepository.save(order);
+        logger.info("Pedido ID {} salvo com sucesso para o usuário ID {}.", savedOrder.getId(), userId);
 
-        // Limpa o carrinho após a conclusão do pedido
+        // Limpa o carrinho após o pedido
         cart.getItems().clear();
         cartRepository.save(cart);
+        logger.info("Carrinho ID {} limpo com sucesso.", cartId);
 
         return savedOrder;
     }

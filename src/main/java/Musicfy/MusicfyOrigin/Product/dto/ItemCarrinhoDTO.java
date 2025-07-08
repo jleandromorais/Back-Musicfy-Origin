@@ -9,6 +9,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ItemCarrinhoDTO {
     private String nomeProduto;
+    private Long productId;
+
     private double precoUnitario;
     private int quantidade;
     private double totalItem;
@@ -22,6 +24,7 @@ public class ItemCarrinhoDTO {
 
     // Construtor para criar DTO a partir de CartItem
     public ItemCarrinhoDTO(CartItem item) {
+        this.productId=item.getProduct().getId();
         this.nomeProduto = item.getProduct().getName();
         this.precoUnitario = item.getProduct().getPrice();
         this.quantidade = item.getQuantity();

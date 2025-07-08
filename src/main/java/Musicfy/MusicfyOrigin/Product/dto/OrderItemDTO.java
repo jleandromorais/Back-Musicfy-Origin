@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class OrderItemDTO {
-    private Long id;
+
     private Long productId;
     private String productName;
     private String productImgPath; // Inclui o caminho da imagem para exibição
@@ -16,13 +16,15 @@ public class OrderItemDTO {
     private Double unitPrice;
     private Double totalPrice; // quantity * unitPrice
 
-    public OrderItemDTO(Long id, Long productId, String productName, String productImgPath, Integer quantity, Double unitPrice) {
-        this.id = id;
+    public OrderItemDTO( Long productId, String productName, String productImgPath, Integer quantity, Double unitPrice) {
         this.productId = productId;
         this.productName = productName;
         this.productImgPath = productImgPath;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
         this.totalPrice = quantity * unitPrice;
+    }
+
+    public OrderItemDTO(String name, String imgPath, Integer quantity, Double unitPriceAtPurchase) {
     }
 }

@@ -5,7 +5,6 @@ import jakarta.transaction.Transactional;
 import Musicfy.MusicfyOrigin.Product.dto.CartItemResponseDTO;
 import Musicfy.MusicfyOrigin.Product.dto.ProductDTO;
 import Musicfy.MusicfyOrigin.Product.model.*;
-import Musicfy.MusicfyOrigin.Product.model.Product;
 import Musicfy.MusicfyOrigin.Product.repository.*;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +36,7 @@ public class CartService {
             throw new IllegalArgumentException("A quantidade tem que ser positiva");
         }
 
-        Musicfy.MusicfyOrigin.Product.model.Product produto = productRepository.findById(productId)
+        Product produto = productRepository.findById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado com ID: " + productId));
         Cart carrinho = new Cart();
         CartItem novoItem = new CartItem(produto, quantidade);

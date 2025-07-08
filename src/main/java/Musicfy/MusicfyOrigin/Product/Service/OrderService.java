@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.persistence.EntityNotFoundException;
+
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,20 +47,20 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Pedido não encontrado com ID: " + orderId));
         order.setStatus(newStatus);
-        Order updatedOrder = orderRepository.save(order);
-        return convertToDTO(updatedOrder);
+        return convertToDTO(orderRepository.save(order));
     }
 
     private OrderDTO convertToDTO(Order order) {
-        OrderDTO orderDTO = new OrderDTO();
-        orderDTO.setId(order.getId());
-        orderDTO.setUserId(order.getUser().getFirebaseUid()); // Assumindo que o Firebase UID é o identificador do usuário
-        orderDTO.setOrderDate(order.getOrderDate());
-        orderDTO.setStatus(order.getStatus());
-        orderDTO.setTotalPrice(order.getTotalPrice());
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        OrderDTO dto = new OrderDTO();
+        dto.setId(order.getId());
+        dto.setUserId(order.getUser().getFirebaseUid());
+        dto.setOrderDate(order.getOrderDate().format(formatter));
+        dto.setStatus(order.getStatus());
+        dto.setTotalPrice(order.getTotalPrice());
 
         if (order.getDeliveryAddress() != null) {
-            orderDTO.setDeliveryAddress(new EnderecoDTO(
+            dto.setDeliveryAddress(new EnderecoDTO(
                     order.getDeliveryAddress().getId(),
                     order.getDeliveryAddress().getCep(),
                     order.getDeliveryAddress().getBairro(),
@@ -70,20 +72,17 @@ public class OrderService {
             ));
         }
 
-        List<OrderItemDTO> itemDTOs = order.getItems().stream()
+        dto.setItems(order.getItems().stream()
                 .map(this::convertOrderItemToDTO)
-                .collect(Collectors.toList());
-        orderDTO.setItems(itemDTOs);
+                .collect(Collectors.toList()));
 
-        return orderDTO;
+        return dto;
     }
 
     private OrderItemDTO convertOrderItemToDTO(OrderItem orderItem) {
         return new OrderItemDTO(
-                orderItem.getId(),
-                orderItem.getProduct().getId(),
                 orderItem.getProduct().getName(),
-                orderItem.getProduct().getImgPath(), // Inclui caminho da imagem
+                orderItem.getProduct().getImgPath(),
                 orderItem.getQuantity(),
                 orderItem.getUnitPriceAtPurchase()
         );

@@ -19,4 +19,6 @@ public interface ProductRepository  extends JpaRepository<Product,Long> {
         return findByIdWithFeatures(id)
                 .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
     }
+    Optional<Product> findByName(String name);
+
 }
