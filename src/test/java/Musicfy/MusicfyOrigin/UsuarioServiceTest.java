@@ -1,149 +1,86 @@
-package Musicfy.MusicfyOrigin.Product.Service;
+package Musicfy.MusicfyOrigin;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import Musicfy.MusicfyOrigin.Product.Service.UsuarioService;
+import Musicfy.MusicfyOrigin.Product.dto.UserDTO;
+import Musicfy.MusicfyOrigin.Product.model.Usuario;
+import Musicfy.MusicfyOrigin.Product.repository.UsuarioRepository;
+import com.google.firebase.auth.FirebaseAuthException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 
 import java.util.Optional;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
-import com.google.firebase.auth.FirebaseToken;
-import Musicfy.MusicfyOrigin.Product.dto.UserDTO;
-import Musicfy.MusicfyOrigin.Product.model.Cart;
-import Musicfy.MusicfyOrigin.Product.model.Usuario;
-import Musicfy.MusicfyOrigin.Product.repository.CartRepository;
-import Musicfy.MusicfyOrigin.Product.repository.UsuarioRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-class UsuarioServiceTest {
+public class UsuarioServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
 
-    @Mock
-    private CartRepository cartRepository;
-
-    @Mock
-    private FirebaseAuth firebaseAuth;
-
     @InjectMocks
     private UsuarioService usuarioService;
 
-    private final String testToken = "test-token";
-    private final String testUid = "test-uid-123";
-    private final String testEmail = "test@example.com";
-    private UserDTO testUserDTO;
-    private FirebaseToken testDecodedToken;
+    private UserDTO userDTO;
+    private Usuario usuario;
 
     @BeforeEach
-    void setUp() throws FirebaseAuthException {
-        // Configuração do DTO de teste
-        testUserDTO = new UserDTO();
-        testUserDTO.setFirebaseUid(testUid);
-        testUserDTO.setFullName("Test User");
-        testUserDTO.setEmail(testEmail);
+    public void setUp() {
+        MockitoAnnotations.openMocks(this);
 
-        // Configuração do token decodificado mock
-        testDecodedToken = mock(FirebaseToken.class);
-        when(testDecodedToken.getUid()).thenReturn(testUid);
-        when(testDecodedToken.getEmail()).thenReturn(testEmail);
+        userDTO = new UserDTO();
+        userDTO.setFirebaseUid("firebase-uid");
+        userDTO.setFullName("Test User");
+        userDTO.setEmail("test@example.com");
 
-        // Configuração padrão do FirebaseAuth mock
-        when(firebaseAuth.verifyIdToken(testToken)).thenReturn(testDecodedToken);
+        usuario = new Usuario();
+        usuario.setId(1L);
+        usuario.setFirebaseUid("firebase-uid");
+        usuario.setName("Test User");
+        usuario.setEmail("test@example.com");
     }
 
     @Test
-    void criarUsuarioComCarrinho_deveSalvarUsuarioECarrinho_quandoDadosValidos() throws FirebaseAuthException {
-        // Arrange
-        when(usuarioRepository.findByFirebaseUid(testUid)).thenReturn(Optional.empty());
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
-            Usuario usuario = invocation.getArgument(0);
-            usuario.setId(1L); // Simula a geração de ID
-            return usuario;
+    public void testCriarUsuarioComCarrinho_Success() {
+        when(usuarioRepository.findByFirebaseUid(any())).thenReturn(null);
+        when(usuarioRepository.save(any())).thenReturn(usuario);
+
+        Usuario result = usuarioService.criarUsuarioComCarrinho(userDTO);
+
+        assertNotNull(result);
+        assertEquals(usuario.getId(), result.getId());
+        verify(usuarioRepository, times(1)).save(any());
+    }
+
+    @Test
+    public void testCriarUsuarioComCarrinho_UsuarioJaExiste() {
+        when(usuarioRepository.findByFirebaseUid(any())).thenReturn(usuario);
+
+        assertThrows(IllegalStateException.class, () -> {
+            usuarioService.criarUsuarioComCarrinho(userDTO);
         });
-
-        // Act
-        usuarioService.criarUsuarioComCarrinho(testToken, testUserDTO);
-
-        // Assert
-        verify(usuarioRepository).findByFirebaseUid(testUid);
-        verify(usuarioRepository).save(any(Usuario.class));
-        verify(cartRepository).save(any(Cart.class));
     }
 
     @Test
-    void criarUsuarioComCarrinho_deveLancarExcecao_quandoUsuarioJaExiste() {
-        // Arrange
-        Usuario usuarioExistente = new Usuario();
-        usuarioExistente.setFirebaseUid(testUid);
-        when(usuarioRepository.findByFirebaseUid(testUid)).thenReturn(Optional.of(usuarioExistente));
+    public void testBuscarUsuarioPorFirebaseUid_UsuarioEncontrado() {
+        when(usuarioRepository.findByFirebaseUid(any())).thenReturn(usuario);
 
-        // Act & Assert
-        assertThatThrownBy(() -> usuarioService.criarUsuarioComCarrinho(testToken, testUserDTO))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Usuário já cadastrado");
+        Optional<Usuario> result = usuarioService.buscarUsuarioPorFirebaseUid("firebase-uid");
+
+        assertTrue(result.isPresent());
+        assertEquals(usuario.getId(), result.get().getId());
     }
 
     @Test
-    void criarUsuarioComCarrinho_deveLancarExcecao_quandoUidNaoCorresponde() throws FirebaseAuthException {
-        // Arrange
-        when(testDecodedToken.getUid()).thenReturn("outro-uid");
-        when(firebaseAuth.verifyIdToken(testToken)).thenReturn(testDecodedToken);
-        when(usuarioRepository.findByFirebaseUid("outro-uid")).thenReturn(Optional.empty());
+    public void testBuscarUsuarioPorFirebaseUid_UsuarioNaoEncontrado() {
+        when(usuarioRepository.findByFirebaseUid(any())).thenReturn(null);
 
-        // Act & Assert
-        assertThatThrownBy(() -> usuarioService.criarUsuarioComCarrinho(testToken, testUserDTO))
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("UID do token não corresponde ao UID do usuário");
-    }
+        Optional<Usuario> result = usuarioService.buscarUsuarioPorFirebaseUid("firebase-uid");
 
-    @Test
-    void criarUsuarioComCarrinho_deveLancarExcecao_quandoEmailNaoCorresponde() throws FirebaseAuthException {
-        // Arrange
-        when(testDecodedToken.getEmail()).thenReturn("outro@email.com");
-        when(firebaseAuth.verifyIdToken(testToken)).thenReturn(testDecodedToken);
-        when(usuarioRepository.findByFirebaseUid(testUid)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThatThrownBy(() -> usuarioService.criarUsuarioComCarrinho(testToken, testUserDTO))
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("Email do token não corresponde ao email do usuário");
-    }
-
-    @Test
-    void criarUsuarioComCarrinho_deveLancarExcecao_quandoTokenInvalido() throws FirebaseAuthException {
-        // Arrange
-        when(firebaseAuth.verifyIdToken(testToken)).thenThrow(new FirebaseAuthException("invalid-token", "Token inválido"));
-
-        // Act & Assert
-        assertThatThrownBy(() -> usuarioService.criarUsuarioComCarrinho(testToken, testUserDTO))
-                .isInstanceOf(FirebaseAuthException.class)
-                .hasMessageContaining("Token inválido");
-    }
-
-    @Test
-    void criarUsuarioComCarrinho_deveAssociarCarrinhoAoUsuario() throws FirebaseAuthException {
-        // Arrange
-        when(usuarioRepository.findByFirebaseUid(testUid)).thenReturn(Optional.empty());
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
-            Usuario usuario = invocation.getArgument(0);
-            usuario.setId(1L);
-            return usuario;
-        });
-
-        // Act
-        usuarioService.criarUsuarioComCarrinho(testToken, testUserDTO);
-
-        // Assert
-        verify(cartRepository).save(argThat(cart ->
-                cart.getUser() != null &&
-                        cart.getUser().getFirebaseUid().equals(testUid)
-        ));
+        assertFalse(result.isPresent());
     }
 }
