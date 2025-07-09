@@ -14,7 +14,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-@Table(name = "orders", schema = "musicfy") // Usando "orders" para evitar conflito com a palavra-chave "Order" em alguns bancos de dados
+@Table(name = "orders") // Usando "orders" para evitar conflito com a palavra-chave "Order" em alguns bancos de dados
 public class Order {
 
     @Id

@@ -10,7 +10,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@Table (name ="endereco " ,schema = "musicfy")
+@Table (name ="endereco " )
 public class Endereco {
 
     @Id
