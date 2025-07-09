@@ -12,7 +12,7 @@ import java.util.List;
 @Entity
 @Getter @Setter
 @NoArgsConstructor
-@Table(name = "cart", schema = "musicfy")
+@Table(name = "cart")
 public class Cart {
 
     @Id
