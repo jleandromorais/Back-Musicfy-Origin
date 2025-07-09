@@ -6,7 +6,6 @@ import Musicfy.MusicfyOrigin.Product.dto.OrderItemDTO;
 import Musicfy.MusicfyOrigin.Product.model.Order;
 import Musicfy.MusicfyOrigin.Product.model.OrderItem;
 import Musicfy.MusicfyOrigin.Product.model.OrderStatus;
-import Musicfy.MusicfyOrigin.Product.model.Usuario;
 import Musicfy.MusicfyOrigin.Product.repository.OrderRepository;
 import Musicfy.MusicfyOrigin.Product.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
@@ -46,9 +45,18 @@ public class OrderService {
     public OrderDTO updateOrderStatus(Long orderId, OrderStatus newStatus) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Pedido não encontrado com ID: " + orderId));
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            orderRepository.delete(order);
+            return null;  // ou lançar exceção, dependendo do tratamento no frontend
+        }
+
         order.setStatus(newStatus);
-        return convertToDTO(orderRepository.save(order));
+        orderRepository.save(order);
+
+        return convertToDTO(order);
     }
+
 
     private OrderDTO convertToDTO(Order order) {
         DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -80,12 +88,14 @@ public class OrderService {
     }
 
     private OrderItemDTO convertOrderItemToDTO(OrderItem orderItem) {
-        return new OrderItemDTO(
-                orderItem.getProduct().getId(),
-                orderItem.getProduct().getName(),
-                orderItem.getProduct().getImgPath(),
-                orderItem.getQuantity(),
-                orderItem.getUnitPriceAtPurchase()
-        );
+        OrderItemDTO itemDTO = new OrderItemDTO();
+        itemDTO.setProductId(orderItem.getProduct().getId());
+        itemDTO.setProductName(orderItem.getProduct().getName());
+        // Ajuste aqui para o getter correto do caminho da imagem
+        itemDTO.setProductImgPath(orderItem.getProduct().getImgPath());
+        itemDTO.setQuantity(orderItem.getQuantity());
+        itemDTO.setUnitPrice(orderItem.getUnitPriceAtPurchase()); // ou getUnitPrice(), conforme seu modelo
+        itemDTO.setTotalPrice(orderItem.getUnitPriceAtPurchase() * orderItem.getQuantity());
+        return itemDTO;
     }
 }

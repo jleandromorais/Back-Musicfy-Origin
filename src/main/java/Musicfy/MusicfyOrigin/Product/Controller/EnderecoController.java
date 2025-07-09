@@ -17,6 +17,8 @@ public class EnderecoController {
     @PostMapping
     public ResponseEntity<EnderecoDTO> criarEndereco(@RequestBody EnderecoDTO enderecoDTO) {
         EnderecoDTO criado = enderecoService.CriarEndereco(enderecoDTO);
+        System.out.println("✅ Endereco criado com sucesso");
         return ResponseEntity.status(201).body(criado); // HTTP 201 Created
+
     }
 }

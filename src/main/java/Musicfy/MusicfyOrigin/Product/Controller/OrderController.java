@@ -24,14 +24,22 @@ public class OrderController {
 
     @GetMapping("/user/{firebaseUid}")
     public ResponseEntity<List<OrderDTO>> getUserOrders(@PathVariable String firebaseUid) {
+        if (firebaseUid == null || firebaseUid.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
         List<OrderDTO> orders = orderService.getUserOrders(firebaseUid);
+        System.out.println("✅ Pedidos do usuário recuperados com sucesso!");
         return ResponseEntity.ok(orders);
     }
 
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderDTO> getOrderById(@PathVariable Long orderId) {
+        if (orderId == null || orderId <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
         try {
             OrderDTO order = orderService.getOrderById(orderId);
+            System.out.println("✅ Pedido recuperado com sucesso! ID: " + orderId);
             return ResponseEntity.ok(order);
         } catch (EntityNotFoundException e) {
             return ResponseEntity.notFound().build();
@@ -40,14 +48,28 @@ public class OrderController {
 
     @PatchMapping("/{orderId}/status")
     public ResponseEntity<?> updateOrderStatus(@PathVariable Long orderId, @RequestBody Map<String, String> statusUpdate) {
-        String newStatusString = statusUpdate.get("status");
-        if (newStatusString == null) {
+        if (orderId == null || orderId <= 0) {
+            return ResponseEntity.badRequest().body("ID do pedido inválido");
+        }
+        if (statusUpdate == null || !statusUpdate.containsKey("status")) {
             return ResponseEntity.badRequest().body("Campo 'status' obrigatório");
+        }
+        String newStatusString = statusUpdate.get("status");
+        if (newStatusString == null || newStatusString.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Campo 'status' não pode ser vazio");
         }
         try {
             OrderStatus newStatus = OrderStatus.valueOf(newStatusString.toUpperCase());
             OrderDTO updatedOrder = orderService.updateOrderStatus(orderId, newStatus);
+
+            System.out.println("✅ Status do pedido atualizado com sucesso! ID: " + orderId + ", Novo status: " + newStatus);
+
+            if (newStatus == OrderStatus.CANCELLED) {
+                return ResponseEntity.noContent().build();
+            }
+
             return ResponseEntity.ok(updatedOrder);
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Status inválido: " + newStatusString);
         } catch (EntityNotFoundException e) {
