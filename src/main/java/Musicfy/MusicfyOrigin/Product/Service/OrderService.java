@@ -81,6 +81,7 @@ public class OrderService {
 
     private OrderItemDTO convertOrderItemToDTO(OrderItem orderItem) {
         return new OrderItemDTO(
+                orderItem.getProduct().getId(),
                 orderItem.getProduct().getName(),
                 orderItem.getProduct().getImgPath(),
                 orderItem.getQuantity(),

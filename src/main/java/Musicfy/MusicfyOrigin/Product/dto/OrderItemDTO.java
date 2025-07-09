@@ -16,7 +16,7 @@ public class OrderItemDTO {
     private Double unitPrice;
     private Double totalPrice; // quantity * unitPrice
 
-    public OrderItemDTO( Long productId, String productName, String productImgPath, Integer quantity, Double unitPrice) {
+    public OrderItemDTO(Long productId, String productName, String productImgPath, Integer quantity, Double unitPrice) {
         this.productId = productId;
         this.productName = productName;
         this.productImgPath = productImgPath;
@@ -25,6 +25,6 @@ public class OrderItemDTO {
         this.totalPrice = quantity * unitPrice;
     }
 
-    public OrderItemDTO(String name, String imgPath, Integer quantity, Double unitPriceAtPurchase) {
-    }
+
+
 }
