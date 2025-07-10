@@ -15,7 +15,8 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(
-                                "https://musicfy-558s99apl-jleandromorais-projects.vercel.app"
+                                "https://musicfy-558s99apl-jleandromorais-projects.vercel.app",
+                                "https://musicfy-two.vercel.app"
 
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
