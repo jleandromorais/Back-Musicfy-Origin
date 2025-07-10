@@ -1,44 +1,41 @@
-package Musicfy.MusicfyOrigin.Product.confing;
+package com.seu.pacote.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import com.google.firebase.auth.FirebaseAuth;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
 
 import javax.annotation.PostConstruct;
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 public class FirebaseConfig {
 
     @PostConstruct
-    public void initialize() {
-        try (InputStream serviceAccount = new ClassPathResource("serviceAccountKey.json").getInputStream()) {
+    public void init() {
+        try {
+            String firebaseConfig = System.getenv("FIREBASE_CONFIG");
+
+            if (firebaseConfig == null || firebaseConfig.isBlank()) {
+                throw new IllegalStateException("A variável de ambiente FIREBASE_CONFIG está vazia ou não foi definida.");
+            }
+
+            InputStream serviceAccount = new ByteArrayInputStream(firebaseConfig.getBytes(StandardCharsets.UTF_8));
 
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    //.setDatabaseUrl("https://your-project-id.firebaseio.com") // Se usar Realtime Database
                     .build();
 
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options);
-                System.out.println("Firebase inicializado com sucesso!");
+                System.out.println("✅ Firebase inicializado com sucesso.");
             }
 
-        } catch (IOException e) {
-            System.err.println("Erro ao inicializar Firebase: " + e.getMessage());
-            throw new RuntimeException("Erro ao inicializar Firebase", e);
+        } catch (Exception e) {
+            System.err.println("❌ Erro ao inicializar o Firebase:");
+            e.printStackTrace();
         }
     }
-
-    // Define o bean para permitir a injeção de FirebaseAuth
-    @Bean
-    public FirebaseAuth firebaseAuth() {
-        return FirebaseAuth.getInstance();
-    }
 }
-
