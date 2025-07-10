@@ -66,8 +66,8 @@ public class StripeService {
 
     @Transactional
     public Session createCheckoutSession(Long cartId, Long userId, Long enderecoId, List<ItemCarrinhoDTO> items) throws StripeException, IOException {
-        String successUrl = "http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}";
-        String cancelUrl = "http://localhost:5173/cancel";
+        String successUrl = "https://musicfy-two.vercel.app/success?session_id={CHECKOUT_SESSION_ID}";
+        String cancelUrl = "https://musicfy-two.vercel.app/cancel";
 
         // NOVO: Monta uma nova lista de DTOs com productId incluído
         List<ItemCarrinhoDTO> enrichedItems = items.stream()
