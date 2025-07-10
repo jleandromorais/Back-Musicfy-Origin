@@ -69,38 +69,51 @@ public class StripeService {
         String successUrl = "https://musicfy-two.vercel.app/success?session_id={CHECKOUT_SESSION_ID}";
         String cancelUrl = "https://musicfy-two.vercel.app/cancel";
 
-        // NOVO: Monta uma nova lista de DTOs com productId incluído
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("A lista de itens do carrinho está vazia.");
+        }
+
+        // Enriquecer os dados dos produtos
         List<ItemCarrinhoDTO> enrichedItems = items.stream()
                 .map(item -> {
                     Product produto = productRepository.findByName(item.getNomeProduto())
-                            .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado ao criar checkout: " + item.getNomeProduto()));
+                            .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado: " + item.getNomeProduto()));
+
+                    if (produto.getPrice() <= 0) {
+                        throw new IllegalArgumentException("Produto com preço inválido: " + produto.getName());
+                    }
 
                     ItemCarrinhoDTO dto = new ItemCarrinhoDTO();
-                    dto.setProductId(produto.getId()); // ESSENCIAL!
+                    dto.setProductId(produto.getId());
                     dto.setNomeProduto(produto.getName());
                     dto.setPrecoUnitario(produto.getPrice());
                     dto.setQuantidade(item.getQuantidade());
                     return dto;
                 }).collect(Collectors.toList());
 
-        // Agora gera os lineItems para Stripe com base nessa lista
+        // Criar os line items do Stripe
         List<SessionCreateParams.LineItem> lineItems = enrichedItems.stream()
-                .map(item -> {
-                    return SessionCreateParams.LineItem.builder()
-                            .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
-                                    .setCurrency("brl")
-                                    .setUnitAmount((long) (item.getPrecoUnitario() * 100))
-                                    .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                            .setName(item.getNomeProduto())
-                                            .build())
-                                    .build())
-                            .setQuantity((long) item.getQuantidade())
-                            .build();
-                }).collect(Collectors.toList());
+                .map(item -> SessionCreateParams.LineItem.builder()
+                        .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
+                                .setCurrency("brl")
+                                .setUnitAmount((long) (item.getPrecoUnitario() * 100)) // em centavos
+                                .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                                        .setName(item.getNomeProduto())
+                                        .build())
+                                .build())
+                        .setQuantity((long) item.getQuantidade())
+                        .build())
+                .collect(Collectors.toList());
 
-        // Serializa a lista para armazenar nos metadados
+        // Validar que temos pelo menos um item
+        if (lineItems.isEmpty()) {
+            throw new IllegalStateException("Não foi possível criar os itens de pagamento. Verifique os produtos.");
+        }
+
+        // Serializar os itens para os metadados
         String itemsJson = objectMapper.writeValueAsString(enrichedItems);
 
+        // Criar os parâmetros da sessão Stripe
         SessionCreateParams params = SessionCreateParams.builder()
                 .addAllLineItem(lineItems)
                 .setMode(SessionCreateParams.Mode.PAYMENT)
@@ -112,8 +125,12 @@ public class StripeService {
                 .putMetadata("itemsJson", itemsJson)
                 .build();
 
+        logger.info("Criando sessão Stripe com successUrl: {}", successUrl);
+        logger.debug("Itens JSON: {}", itemsJson);
+
         return Session.create(params);
     }
+
 
     @Transactional
     public Order fulfillOrder(Session session) throws IOException {
