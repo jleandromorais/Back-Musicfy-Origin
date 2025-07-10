@@ -18,8 +18,12 @@ public class CorsFilterConfig {
 
         // Configurações específicas
         config.setAllowCredentials(true);
-        config.addAllowedOriginPattern("http://localhost:*"); // Permite qualquer porta localhost
-        config.addAllowedOriginPattern("https://*.seusite.com"); // Padrão para produção
+
+        // Domínios permitidos
+        config.addAllowedOrigin("http://localhost:5173"); // Para desenvolvimento local
+        config.addAllowedOrigin("https://musicfy-two.vercel.app"); // Seu domínio principal
+        config.addAllowedOrigin("https://musicfy-f5p3mu52u-jleandromorais-projects.vercel.app"); // Outro domínio de deploy
+
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
 
