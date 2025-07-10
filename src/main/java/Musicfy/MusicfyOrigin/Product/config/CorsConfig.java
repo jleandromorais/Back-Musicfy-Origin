@@ -1,6 +1,4 @@
-// src/main/java/com/musicfy/config/CorsConfig.java
-
-package Musicfy.MusicfyOrigin.Product.confing;
+package Musicfy.MusicfyOrigin.Product.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,10 +7,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class CorsConfig {
-//ola
+
     @Bean
     public WebMvcConfigurer corsConfigurer() {
-        System.out.println("✅ CorsConfig carregada com sucesso!"); // <- ADICIONE ISSO
+        System.out.println("✅ CorsConfig carregada com sucesso!");
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {

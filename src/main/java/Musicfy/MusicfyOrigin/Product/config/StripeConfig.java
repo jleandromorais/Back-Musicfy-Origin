@@ -1,4 +1,4 @@
-package Musicfy.MusicfyOrigin.Product.confing;
+package Musicfy.MusicfyOrigin.Product.config;
 
 import com.stripe.Stripe;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,4 +1,4 @@
-package com.seu.pacote.config;
+package Musicfy.MusicfyOrigin.Product.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
