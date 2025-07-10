@@ -22,8 +22,8 @@ public class FirebaseConfig {
                 throw new IllegalStateException("A variável de ambiente FIREBASE_CONFIG está vazia ou não foi definida.");
             }
 
-            // DEBUG: Mostra os 100 primeiros caracteres da variável
-            System.out.println("📦 FIREBASE_CONFIG prefix: " + firebaseConfig.substring(0, Math.min(firebaseConfig.length(), 100)));
+            // Corrige os \n escapados
+            firebaseConfig = firebaseConfig.replace("\\n", "\n");
 
             InputStream serviceAccount = new ByteArrayInputStream(firebaseConfig.getBytes(StandardCharsets.UTF_8));
 
@@ -38,7 +38,7 @@ public class FirebaseConfig {
 
         } catch (Exception e) {
             System.err.println("❌ Erro ao inicializar o Firebase:");
-            e.printStackTrace(); // ESSENCIAL — isso que precisamos ver
+            e.printStackTrace();
         }
     }
 }
