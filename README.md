@@ -52,7 +52,7 @@ A API gerencia produtos, carrinhos de compras, pedidos, usuários e pagamentos a
 
 ### 1. 🔽 Clonar o Repositório
 ```bash
-git clone <url-do-seu-repositorio>
+git clone https://github.com/jleandromorais/Back-Musicfy-Origin.git
 cd back-musicfy-origin
 
 ```
