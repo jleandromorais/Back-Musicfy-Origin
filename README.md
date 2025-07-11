@@ -112,4 +112,31 @@ src/main/resources/
 ├── application.properties # Arquivo de configuração (pode ser usado para o DB)
 pom.xml                    # Dependências e configuração do Maven
 ```
+````
+## 📄 API Endpoints
 
+Aqui estão alguns dos principais endpoints da API:
+
+- `POST /api/usuario/criar`  
+  Cria um novo usuário.
+
+- `GET /api/usuario/firebase/{firebaseUid}`  
+  Busca um usuário pelo UID do Firebase.
+
+- `GET /api/products`  
+  Lista todos os produtos.
+
+- `POST /api/carrinho/criar`  
+  Cria um novo carrinho com um item.
+
+- `POST /api/carrinho/{cartId}/adicionar`  
+  Adiciona um item a um carrinho existente.
+
+- `POST /api/checkout/create-session`  
+  Cria uma sessão de checkout no Stripe.
+
+- `POST /api/checkout/webhook`  
+  Webhook para eventos do Stripe.
+
+- `GET /api/orders/user/{firebaseUid}`  
+  Lista os pedidos de um usuário.
