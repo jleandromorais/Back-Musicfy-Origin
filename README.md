@@ -96,4 +96,20 @@ Use o **Maven Wrapper** incluído para executar a aplicação:
 
 # No Windows
 ./mvnw.cmd spring-boot:run
+````
+## 📂 Estrutura do Projeto
+````
+src/main/java/Musicfy/MusicfyOrigin/
+├── Product/
+│   ├── config/       # Configurações de Beans (CORS, Stripe, Firebase)
+│   ├── Controller/   # Controladores REST da aplicação
+│   ├── dto/          # Data Transfer Objects
+│   ├── model/        # Entidades JPA
+│   ├── repository/   # Repositórios Spring Data JPA
+│   ├── Service/      # Lógica de negócio da aplicação
+├── MusicfyOriginApplication.java # Classe principal da aplicação Spring Boot
+src/main/resources/
+├── application.properties # Arquivo de configuração (pode ser usado para o DB)
+pom.xml                    # Dependências e configuração do Maven
+```
 
