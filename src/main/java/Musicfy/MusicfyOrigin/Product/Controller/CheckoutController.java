@@ -1,5 +1,6 @@
 package Musicfy.MusicfyOrigin.Product.Controller;
 
+import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
@@ -16,13 +17,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import static Musicfy.MusicfyOrigin.Product.Service.StripeService.logger;
+
 @RestController
 @RequestMapping("/api/checkout")
-@CrossOrigin(origins = {
-        "http://localhost:5173",
-        "https://musicfy-two.vercel.app",
-        "https://musicfy-558s99apl-jleandromorais-projects.vercel.app"
-})
+@CrossOrigin(origins = "http://localhost:5173") // Ajuste conforme sua origem de front-end
 public class CheckoutController {
 
     private final StripeService stripeService;
@@ -39,7 +38,7 @@ public class CheckoutController {
         try {
             if (checkoutRequest.getCartId() == null || checkoutRequest.getUserId() == null || checkoutRequest.getEnderecoId() == null) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Faltando cartId, userId ou enderecoId na requisição."));
+                        .body(Map.of("error", "Faltando cartId, userId, ou enderecoId na requisição."));
             }
 
             Session session = stripeService.createCheckoutSession(
@@ -55,58 +54,71 @@ public class CheckoutController {
 
         } catch (StripeException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Erro ao criar sessão Stripe", "details", e.getMessage()));
+                    .body(Map.of(
+                            "error", "Falha ao criar sessão Stripe",
+                            "details", e.getMessage()
+                    ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Erro interno ao processar o checkout", "details", e.getMessage()));
+                    .body(Map.of(
+                            "error", "Erro interno ao processar checkout",
+                            "details", e.getMessage()
+                    ));
         }
     }
 
 
+    // Este é o único método que você vai substituir no arquivo CheckoutController.java
+    // Cole este código de volta no seu CheckoutController.java
+    // No ficheiro: CheckoutController.java
+
     @PostMapping("/webhook")
-    public ResponseEntity<String> handleStripeWebhook(
-            @RequestBody String payload,
-            @RequestHeader("Stripe-Signature") String sigHeader
-    ) {
+    public ResponseEntity<String> handleStripeWebhook(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
         Event event;
+        String endpointSecret = this.stripeWebhookSecret;
 
         try {
-            event = Webhook.constructEvent(payload, sigHeader, stripeWebhookSecret);
-            System.out.println("✅ Webhook recebido e validado: " + event.getType());
+            event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
+            System.out.println("Webhook do Stripe recebido e validado! Tipo: " + event.getType());
         } catch (SignatureVerificationException e) {
-            System.err.println("❌ ERRO: Assinatura inválida do Webhook!");
+            System.err.println("!!! ERRO: Falha na verificação da assinatura do Webhook!");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Assinatura inválida");
         }
 
+        // Lida com o evento 'checkout.session.completed'
         if ("checkout.session.completed".equals(event.getType())) {
-            EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
             Session session;
+            EventDataObjectDeserializer dataObjectDeserializer = event.getDataObjectDeserializer();
 
+            // **ESTA É A CORREÇÃO** - Usamos um método mais direto para obter o objeto
             try {
-                session = (Session) deserializer.deserializeUnsafe();
+                session = (Session) dataObjectDeserializer.deserializeUnsafe();
             } catch (Exception e) {
-                System.err.println("❌ ERRO ao deserializar Session: " + e.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao deserializar Session.");
+                System.err.println("!!! ERRO CRÍTICO ao deserializar o objeto Session: " + e.getMessage());
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Falha ao processar o objeto da sessão.");
             }
 
             if (session == null) {
-                System.err.println("❌ ERRO: Session Stripe é nula.");
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Session nula.");
+                System.err.println("!!! ERRO CRÍTICO: O objeto Session é nulo.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Objeto da sessão nulo.");
             }
 
-            System.out.println("📦 Processando pedido da sessão: " + session.getId());
-
+            System.out.println(">>> Processando pedido para a Sessão Stripe ID: " + session.getId());
             try {
+                // Chama o serviço para criar o pedido no banco de dados
                 stripeService.fulfillOrder(session);
-                System.out.println("✅ Pedido processado com sucesso!");
+                System.out.println("✅ SUCESSO: Pedido processado e salvo no banco de dados!");
             } catch (Exception e) {
-                System.err.println("❌ ERRO ao salvar pedido: " + e.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao salvar pedido.");
+                System.err.println("!!! ERRO CRÍTICO ao salvar o pedido no banco de dados: " + e.getMessage());
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro interno ao salvar pedido.");
             }
         } else {
-            System.out.println("ℹ️ Evento ignorado: " + event.getType());
+            // Ignora outros tipos de eventos que não nos interessam para este fluxo
+            System.out.println("Evento recebido mas não processado: " + event.getType());
         }
 
-        return ResponseEntity.ok("Webhook recebido com sucesso.");
+        return ResponseEntity.ok("Recebido");
     }
-}
+    }
