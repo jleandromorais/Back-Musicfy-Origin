@@ -67,7 +67,9 @@ public class CheckoutController {
     public ResponseEntity<String> handleStripeWebhook(
             @RequestBody String payload,
             @RequestHeader("Stripe-Signature") String sigHeader
+
     ) {
+        System.out.println("🛎️ --> Webhook endpoint chamado!");
         System.out.println("🚀 Webhook recebido! Payload tamanho: " + payload.length());
 
         Event event;
