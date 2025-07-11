@@ -68,29 +68,29 @@ public class CheckoutController {
             @RequestBody String payload,
             @RequestHeader("Stripe-Signature") String sigHeader
     ) {
-        Event event;
+        System.out.println("🚀 Webhook recebido! Payload tamanho: " + payload.length());
 
+        Event event;
         try {
             event = Webhook.constructEvent(payload, sigHeader, stripeWebhookSecret);
-            System.out.println("✅ Webhook recebido e validado: " + event.getType());
+            System.out.println("✅ Webhook validado, tipo do evento: " + event.getType());
         } catch (SignatureVerificationException e) {
-            System.err.println("❌ ERRO: Assinatura inválida do Webhook!");
+            System.err.println("❌ Assinatura inválida: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Assinatura inválida");
         }
 
         if ("checkout.session.completed".equals(event.getType())) {
             EventDataObjectDeserializer deserializer = event.getDataObjectDeserializer();
             Session session;
-
             try {
                 session = (Session) deserializer.deserializeUnsafe();
             } catch (Exception e) {
-                System.err.println("❌ ERRO ao deserializar Session: " + e.getMessage());
+                System.err.println("❌ Erro ao deserializar Session: " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao deserializar Session.");
             }
 
             if (session == null) {
-                System.err.println("❌ ERRO: Session Stripe é nula.");
+                System.err.println("❌ Session é nula");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Session nula.");
             }
 
@@ -100,7 +100,7 @@ public class CheckoutController {
                 stripeService.fulfillOrder(session);
                 System.out.println("✅ Pedido processado com sucesso!");
             } catch (Exception e) {
-                System.err.println("❌ ERRO ao salvar pedido: " + e.getMessage());
+                System.err.println("❌ Erro ao salvar pedido: " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro ao salvar pedido.");
             }
         } else {
