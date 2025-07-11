@@ -13,7 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class Product {
-
+//oka
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
