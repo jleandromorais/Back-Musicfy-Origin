@@ -54,3 +54,33 @@ A API gerencia produtos, carrinhos de compras, pedidos, usuários e pagamentos a
 ```bash
 git clone <url-do-seu-repositorio>
 cd back-musicfy-origin
+
+```
+### 2. 🧩 Configurar o Banco de Dados
+
+Crie um banco no PostgreSQL com o nome desejado (ex: `musicfy`).
+
+Configure o `application.properties` ou um arquivo `.env` com as credenciais:
+
+```env
+DB_URL=jdbc:postgresql://localhost:5432/musicfy
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
+````
+
+### 3. 🔐 Configurar Variáveis de Ambiente
+
+Crie um arquivo `.env` na raiz do projeto com as seguintes variáveis:
+
+```env
+# Configuração do Firebase
+FIREBASE_CONFIG={ "type": "service_account", "project_id": "...", ... }
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Banco de Dados (se necessário)
+DB_URL=jdbc:postgresql://localhost:5432/musicfy
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
