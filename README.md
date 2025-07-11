@@ -84,3 +84,16 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 DB_URL=jdbc:postgresql://localhost:5432/musicfy
 DB_USER=seu_usuario
 DB_PASSWORD=sua_senha
+
+````
+### 4. ▶️ Executar a Aplicação
+
+Use o **Maven Wrapper** incluído para executar a aplicação:
+
+```bash
+# No Linux ou macOS
+./mvnw spring-boot:run
+
+# No Windows
+./mvnw.cmd spring-boot:run
+
