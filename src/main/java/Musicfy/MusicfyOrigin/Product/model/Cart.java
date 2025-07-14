@@ -24,7 +24,7 @@ public class Cart {
     private List<CartItem> items = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id",unique = true)
     private Usuario user;
 
     @ManyToOne(fetch = FetchType.LAZY)
