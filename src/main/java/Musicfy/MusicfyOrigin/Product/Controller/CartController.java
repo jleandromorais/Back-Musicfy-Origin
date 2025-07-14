@@ -70,18 +70,12 @@ public class CartController {
      * @return O carrinho do usuário.
      */
     @GetMapping("/user/{firebaseUid}")
-    public ResponseEntity<CartDTO> getCarrinhoDoUsuario(@PathVariable String firebaseUid) {
-        System.out.println("✅ LOGADO: Buscando carrinho para o usuário " + firebaseUid);
-        try {
-            CartDTO cart = cartService.getCartByFirebaseUid(firebaseUid);
-            return ResponseEntity.ok(cart);
-        } catch (EntityNotFoundException e) {
-            // Se o carrinho não for encontrado, retorna 404. O frontend pode então decidir criar um novo.
-            // Isso é importante para a lógica de mesclagem e carregamento inicial.
-            System.out.println("❌ Carrinho não encontrado para o usuário " + firebaseUid + ": " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+    public ResponseEntity<CartDTO> getOuCriarCarrinhoDoUsuario(@PathVariable String firebaseUid) {
+        System.out.println("✅ LOGADO: Buscando ou criando carrinho para o usuário " + firebaseUid);
+        CartDTO cart = cartService.buscarOuCriarCarrinho(firebaseUid);
+        return ResponseEntity.ok(cart);
     }
+
 
     /**
      * Mescla itens de um carrinho temporário (visitante) para o carrinho de um usuário logado.

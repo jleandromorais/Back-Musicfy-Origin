@@ -72,6 +72,21 @@ public class CartService {
         Cart savedCart = cartRepository.save(cart);
         return convertToDTO(savedCart);
     }
+    public CartDTO buscarOuCriarCarrinho(String firebaseUid) {
+    Usuario user = usuarioRepository.findByFirebaseUid(firebaseUid);
+    if (user == null) {
+        throw new EntityNotFoundException("Usuário não encontrado");
+    }
+
+    Cart carrinho = cartRepository.findByUserId(user.getId())
+            .orElseGet(() -> {
+                Cart novo = new Cart();
+                novo.setUser(user);
+                return cartRepository.save(novo);
+            });
+
+    return convertToDTO(carrinho);
+}
 
     @Transactional(readOnly = true)
     public CartDTO getCartByFirebaseUid(String firebaseUid) {
