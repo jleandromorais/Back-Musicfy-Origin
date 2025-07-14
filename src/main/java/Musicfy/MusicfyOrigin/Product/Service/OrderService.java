@@ -46,12 +46,9 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new EntityNotFoundException("Pedido não encontrado com ID: " + orderId));
 
-        if (newStatus == OrderStatus.CANCELLED) {
-            orderRepository.delete(order);
-            return null;  // ou lançar exceção, dependendo do tratamento no frontend
-        }
-
-        order.setStatus(newStatus);
+        // REMOVA: if (newStatus == OrderStatus.CANCELLED) { orderRepository.delete(order); return null; }
+        // Em vez de deletar, simplesmente atualize o status para CANCELLED (ou qualquer outro status)
+        order.setStatus(newStatus); // Esta linha agora será executada para todos os status, incluindo CANCELLED
         orderRepository.save(order);
 
         return convertToDTO(order);
