@@ -3,6 +3,7 @@ package Musicfy.MusicfyOrigin.Product.Controller;
 import Musicfy.MusicfyOrigin.Product.Service.CartService;
 import Musicfy.MusicfyOrigin.Product.dto.CartDTO;
 import Musicfy.MusicfyOrigin.Product.dto.CartItemResponseDTO;
+import Musicfy.MusicfyOrigin.Product.dto.ItemCarrinhoDTO;
 import Musicfy.MusicfyOrigin.Product.dto.ItemCarrinhoRequestDTO;
 import Musicfy.MusicfyOrigin.Product.model.Cart;
 import Musicfy.MusicfyOrigin.Product.repository.CartRepository;
@@ -14,13 +15,16 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.persistence.EntityNotFoundException;
 
 import java.util.HashMap;
+import java.util.List; // Importar List
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controller unificado para gerenciar o Carrinho de Compras.
  * Contém endpoints para:
  * 1. Usuários Logados (baseados em `firebaseUid`).
  * 2. Usuários Visitantes/Convidados (baseados em `cartId`).
+ * 3. Mesclagem de carrinhos (novo).
  */
 @RestController
 @RequestMapping("/api/carrinho")
@@ -41,6 +45,7 @@ public class CartController {
 
     /**
      * Adiciona ou atualiza um item no carrinho de um usuário logado.
+     * Se o carrinho não existir, um novo será criado para o usuário.
      * @param firebaseUid O ID do Firebase do usuário.
      * @param request O corpo da requisição com productId e quantity.
      * @return O estado atualizado do carrinho.
@@ -67,8 +72,46 @@ public class CartController {
     @GetMapping("/user/{firebaseUid}")
     public ResponseEntity<CartDTO> getCarrinhoDoUsuario(@PathVariable String firebaseUid) {
         System.out.println("✅ LOGADO: Buscando carrinho para o usuário " + firebaseUid);
-        CartDTO cart = cartService.getCartByFirebaseUid(firebaseUid);
-        return ResponseEntity.ok(cart);
+        try {
+            CartDTO cart = cartService.getCartByFirebaseUid(firebaseUid);
+            return ResponseEntity.ok(cart);
+        } catch (EntityNotFoundException e) {
+            // Se o carrinho não for encontrado, retorna 404. O frontend pode então decidir criar um novo.
+            // Isso é importante para a lógica de mesclagem e carregamento inicial.
+            System.out.println("❌ Carrinho não encontrado para o usuário " + firebaseUid + ": " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    /**
+     * Mescla itens de um carrinho temporário (visitante) para o carrinho de um usuário logado.
+     * Se o carrinho do usuário não existir, ele será criado com os itens mesclados.
+     * @param userId O ID do usuário no banco de dados.
+     * @param tempItems A lista de itens temporários a serem mesclados.
+     * @return O carrinho do usuário atualizado.
+     */
+    @PostMapping("/user/{userId}/merge") // Use userId do seu banco de dados
+    public ResponseEntity<CartDTO> mergeCarts(
+            @PathVariable Long userId,
+            @RequestBody List<ItemCarrinhoRequestDTO> tempItems) { // Reutilizando ItemCarrinhoRequestDTO
+        System.out.println("🔄 Mesclando carrinho temporário para o usuário ID: " + userId);
+        try {
+            // Certifique-se de que seu frontend envia userId do backend (não firebaseUid)
+            // e os itens no formato correto.
+            CartDTO mergedCart = cartService.mergeTemporaryCart(
+                    userId,
+                    tempItems.stream()
+                            .map(req -> new ItemCarrinhoDTO(req.getProductId(), req.getQuantity())) // Converter para ItemCarrinhoDTO
+                            .collect(Collectors.toList())
+            );
+            return ResponseEntity.ok(mergedCart);
+        } catch (EntityNotFoundException e) {
+            System.out.println("❌ Erro ao mesclar carrinho: Usuário não encontrado. " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        } catch (Exception e) {
+            System.err.println("❌ Erro inesperado ao mesclar carrinho: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
     }
 
 
@@ -150,18 +193,14 @@ public class CartController {
      */
     @DeleteMapping("/{cartId}/remover/{productId}")
     public ResponseEntity<String> removerItem(@PathVariable Long cartId, @PathVariable Long productId) {
-        Cart cart = cartRepository.findById(cartId)
-                .orElseThrow(() -> new EntityNotFoundException("Carrinho não encontrado: " + cartId));
-
-        boolean removed = cart.getItems().removeIf(item -> item.getProduct().getId().equals(productId));
-
-        if (!removed) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Produto não encontrado no carrinho.");
+        // RECOMENDAÇÃO: Mover esta lógica para o CartService
+        try {
+            cartService.removerItemDoCarrinho(cartId, productId); // Novo método no service
+            System.out.println("✅ VISITANTE: Produto " + productId + " removido com sucesso do carrinho " + cartId);
+            return ResponseEntity.ok("Produto removido com sucesso.");
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Produto não encontrado no carrinho ou carrinho não existe.");
         }
-
-        cartRepository.save(cart);
-        System.out.println("✅ VISITANTE: Produto " + productId + " removido com sucesso do carrinho " + cartId);
-        return ResponseEntity.ok("Produto removido com sucesso.");
     }
 
     /**

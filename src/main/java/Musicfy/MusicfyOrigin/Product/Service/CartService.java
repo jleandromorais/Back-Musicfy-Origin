@@ -10,15 +10,10 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Serviço unificado para gerenciar o Carrinho de Compras.
- * Contém métodos para:
- * 1. Usuários Logados (baseados em `firebaseUid`).
- * 2. Usuários Visitantes/Convidados (baseados em `cartId`).
- */
 @Service
 public class CartService {
 
@@ -39,20 +34,24 @@ public class CartService {
         this.usuarioRepository = usuarioRepository;
     }
 
-    // ===================================================================
-    // == Métodos para Usuários LOGADOS (baseados em firebaseUid)      ==
-    // ===================================================================
+    // ================================
+    // Para usuários logados
+    // ================================
 
-    /**
-     * Adiciona ou atualiza um item no carrinho de um usuário logado.
-     */
     @Transactional
     public CartDTO addItemToUserCart(String firebaseUid, Long productId, int quantity) {
         Usuario user = Optional.ofNullable(usuarioRepository.findByFirebaseUid(firebaseUid))
                 .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado com Firebase UID: " + firebaseUid));
 
         Cart cart = cartRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new EntityNotFoundException("Carrinho não encontrado para o usuário ID: " + user.getId()));
+                .orElseGet(() -> {
+                    Cart newCart = new Cart();
+                    newCart.setUser(user);
+                    return newCart;
+                });
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado com ID: " + productId));
 
         Optional<CartItem> existingItemOpt = cart.getItems().stream()
                 .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(productId))
@@ -61,21 +60,19 @@ public class CartService {
         if (existingItemOpt.isPresent()) {
             CartItem item = existingItemOpt.get();
             item.setQuantity(item.getQuantity() + quantity);
-            cartItemRepository.save(item);
+            cartItemRepository.save(item); // Atualiza o item
         } else {
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado com ID: " + productId));
-            CartItem newItem = new CartItem(product, quantity);
-            cart.addItem(newItem);
+            CartItem newItem = new CartItem();
+            newItem.setProduct(product);
+            newItem.setQuantity(quantity);
+            newItem.setCart(cart); // Importante para relacionamento bidirecional
+            cart.getItems().add(newItem); // Adiciona o item à coleção do carrinho
         }
 
         Cart savedCart = cartRepository.save(cart);
         return convertToDTO(savedCart);
     }
 
-    /**
-     * Recupera o carrinho de um usuário logado pelo seu Firebase UID.
-     */
     @Transactional(readOnly = true)
     public CartDTO getCartByFirebaseUid(String firebaseUid) {
         Usuario user = Optional.ofNullable(usuarioRepository.findByFirebaseUid(firebaseUid))
@@ -87,27 +84,46 @@ public class CartService {
         return convertToDTO(cart);
     }
 
-    /**
-     * Método auxiliar para converter a entidade Cart em um DTO.
-     */
-    private CartDTO convertToDTO(Cart cart) {
-        CartDTO cartDTO = new CartDTO();
-        cartDTO.setId(cart.getId());
-        cartDTO.setItems(cart.getItems().stream()
-                .map(ItemCarrinhoDTO::new)
-                .collect(Collectors.toList()));
+    @Transactional
+    public CartDTO mergeTemporaryCart(Long userId, List<ItemCarrinhoDTO> tempItems) {
+        Usuario user = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário não encontrado com ID: " + userId));
 
-        double total = cart.getItems().stream()
-                .mapToDouble(item -> item.getProduct().getPrice() * item.getQuantity())
-                .sum();
-        cartDTO.setTotal(total);
+        Cart userCart = cartRepository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    Cart newCart = new Cart();
+                    newCart.setUser(user);
+                    return newCart;
+                });
 
-        return cartDTO;
+        for (ItemCarrinhoDTO tempItem : tempItems) {
+            Product product = productRepository.findById(tempItem.getProductId())
+                    .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado com ID: " + tempItem.getProductId()));
+
+            Optional<CartItem> existingItemOpt = userCart.getItems().stream()
+                    .filter(item -> item.getProduct() != null && item.getProduct().getId().equals(tempItem.getProductId()))
+                    .findFirst();
+
+            if (existingItemOpt.isPresent()) {
+                CartItem itemToUpdate = existingItemOpt.get();
+                itemToUpdate.setQuantity(itemToUpdate.getQuantity() + tempItem.getQuantidade());
+                cartItemRepository.save(itemToUpdate);
+            } else {
+                CartItem newItem = new CartItem();
+                newItem.setProduct(product);
+                newItem.setQuantity(tempItem.getQuantidade());
+                newItem.setCart(userCart);
+                userCart.getItems().add(newItem);
+            }
+        }
+
+        Cart savedCart = cartRepository.save(userCart);
+        return convertToDTO(savedCart);
     }
 
-    // ===================================================================
-    // == Métodos para VISITANTES (baseados em cartId)                 ==
-    // ===================================================================
+    // ================================
+    // Para visitantes/convidados
+    // ================================
 
     @Transactional
     public CartItemResponseDTO criarCarrinhoComItem(Long productId, int quantidade) {
@@ -117,12 +133,20 @@ public class CartService {
 
         Product produto = productRepository.findById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado com ID: " + productId));
-        Cart carrinho = new Cart(); // Cria um carrinho sem usuário associado
-        CartItem novoItem = new CartItem(produto, quantidade);
-        carrinho.addItem(novoItem);
+        Cart carrinho = new Cart();
+        CartItem novoItem = new CartItem();
+        novoItem.setProduct(produto);
+        novoItem.setQuantity(quantidade);
+        novoItem.setCart(carrinho);
+        carrinho.getItems().add(novoItem);
 
         Cart carrinhoSalvo = cartRepository.save(carrinho);
-        CartItem itemSalvo = carrinhoSalvo.getItems().get(0);
+
+        CartItem itemSalvo = carrinhoSalvo.getItems().stream()
+                .filter(item -> item.getProduct().getId().equals(productId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Item não encontrado após salvar o carrinho."));
+
         Product produtoSalvo = itemSalvo.getProduct();
 
         ProductDTO productDTO = new ProductDTO(
@@ -154,16 +178,19 @@ public class CartService {
         if (itemExistenteOpt.isPresent()) {
             CartItem itemExistente = itemExistenteOpt.get();
             itemExistente.setQuantity(itemExistente.getQuantity() + novaQuantidade);
+            cartItemRepository.save(itemExistente);
         } else {
             Product produto = productRepository.findById(productId)
                     .orElseThrow(() -> new EntityNotFoundException("Produto não encontrado"));
-            CartItem novoItem = new CartItem(produto, novaQuantidade);
-            carrinho.addItem(novoItem);
+            CartItem novoItem = new CartItem();
+            novoItem.setProduct(produto);
+            novoItem.setQuantity(novaQuantidade);
+            novoItem.setCart(carrinho);
+            carrinho.getItems().add(novoItem);
+            cartRepository.save(carrinho);
         }
 
-        Cart carrinhoSalvo = cartRepository.save(carrinho);
-
-        CartItem itemFinal = carrinhoSalvo.getItems().stream()
+        CartItem itemFinal = carrinho.getItems().stream()
                 .filter(item -> item.getProduct().getId().equals(productId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Item final não encontrado após salvar"));
@@ -180,7 +207,7 @@ public class CartService {
 
         return new CartItemResponseDTO(
                 itemFinal.getId(),
-                carrinhoSalvo.getId(),
+                carrinho.getId(),
                 productDTO,
                 itemFinal.getQuantity()
         );
@@ -199,7 +226,6 @@ public class CartService {
         CartItem item = cartItemRepository.findByCartIdAndProductId(cartId, productId)
                 .orElseThrow(() -> new EntityNotFoundException("Item não encontrado no carrinho para decrementar. CartId: " + cartId + ", ProductId: " + productId));
         if (item.getQuantity() <= 1) {
-            // Se a quantidade for 1, o item é removido do carrinho.
             cartItemRepository.delete(item);
         } else {
             item.setQuantity(item.getQuantity() - 1);
@@ -214,5 +240,33 @@ public class CartService {
 
         carrinho.getItems().clear();
         cartRepository.save(carrinho);
+    }
+
+    @Transactional
+    public void removerItemDoCarrinho(Long cartId, Long productId) {
+        Cart cart = cartRepository.findById(cartId)
+                .orElseThrow(() -> new EntityNotFoundException("Carrinho não encontrado: " + cartId));
+
+        boolean removed = cart.getItems().removeIf(item -> item.getProduct().getId().equals(productId));
+
+        if (!removed) {
+            throw new EntityNotFoundException("Produto não encontrado no carrinho: " + productId);
+        }
+        cartRepository.save(cart);
+    }
+
+    private CartDTO convertToDTO(Cart cart) {
+        CartDTO cartDTO = new CartDTO();
+        cartDTO.setId(cart.getId());
+        cartDTO.setItems(cart.getItems().stream()
+                .map(ItemCarrinhoDTO::new)
+                .collect(Collectors.toList()));
+
+        double total = cart.getItems().stream()
+                .mapToDouble(item -> item.getProduct() != null ? item.getProduct().getPrice() * item.getQuantity() : 0.0)
+                .sum();
+        cartDTO.setTotal(total);
+
+        return cartDTO;
     }
 }
