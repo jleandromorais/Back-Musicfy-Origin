@@ -22,7 +22,7 @@ public class Cart {
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<CartItem> items = new ArrayList<>();
-
+//ola
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id",unique = true)
     private Usuario user;
